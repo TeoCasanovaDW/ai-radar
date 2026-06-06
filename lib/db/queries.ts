@@ -1,6 +1,6 @@
 import { createServerClient } from './supabase';
-import type { SyncRun } from './types';
-import { MAIN_PROVIDERS } from '../constants/providers';
+import type { Model, SyncRun } from './types';
+import { MAIN_PROVIDER_VARIANTS } from '../constants/providers';
 
 export type DashboardModelMetric = {
   name: string
@@ -34,38 +34,38 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     supabase
       .from('models')
       .select('id', { count: 'exact', head: true })
-      .in('provider', MAIN_PROVIDERS),
+      .in('provider', MAIN_PROVIDER_VARIANTS),
     supabase
       .from('models')
       .select('id', { count: 'exact', head: true }),
     supabase
       .from('models')
       .select('provider')
-      .in('provider', MAIN_PROVIDERS),
+      .in('provider', MAIN_PROVIDER_VARIANTS),
     supabase
       .from('models')
       .select('name, provider, openrouter_id, prompt_price_per_million')
-      .in('provider', MAIN_PROVIDERS)
+      .in('provider', MAIN_PROVIDER_VARIANTS)
       .gt('prompt_price_per_million', 0)
       .order('prompt_price_per_million', { ascending: true })
       .limit(1),
     supabase
       .from('models')
       .select('name, provider, openrouter_id, completion_price_per_million')
-      .in('provider', MAIN_PROVIDERS)
+      .in('provider', MAIN_PROVIDER_VARIANTS)
       .gt('completion_price_per_million', 0)
       .order('completion_price_per_million', { ascending: true })
       .limit(1),
     supabase
       .from('models')
       .select('name, provider, openrouter_id, context_length')
-      .in('provider', MAIN_PROVIDERS)
+      .in('provider', MAIN_PROVIDER_VARIANTS)
       .order('context_length', { ascending: false })
       .limit(1),
     supabase
       .from('models')
       .select('id', { count: 'exact', head: true })
-      .in('provider', MAIN_PROVIDERS)
+      .in('provider', MAIN_PROVIDER_VARIANTS)
       .eq('is_multimodal', true),
   ]);
 
@@ -90,6 +90,22 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       : null,
     multimodalCount: multimodalCount ?? 0,
   };
+}
+
+export async function getAllModels(): Promise<Model[]> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('models')
+    .select('*')
+    .order('provider', { ascending: true })
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to fetch models: ${error.message}`);
+  }
+
+  return data ?? [];
 }
 
 export async function getLatestSuccessfulSyncRun(): Promise<SyncRun | null> {
