@@ -1,7 +1,20 @@
 export const dynamic = 'force-dynamic';
 
-import { getDashboardMetrics, getLatestSuccessfulSyncRun } from '@/lib/db/queries';
+import {
+  getDashboardMetrics,
+  getLatestSuccessfulSyncRun,
+  getPriceChartData,
+  getContextChartData,
+  getPriceVsContextData,
+  getModelsByProviderData,
+  getCatalogEvolutionData,
+} from '@/lib/db/queries';
 import { MetricCard } from '@/components/dashboard/metric-card';
+import { PriceChart } from '@/components/charts/price-chart';
+import { ContextChart } from '@/components/charts/context-chart';
+import { PriceVsContextChart } from '@/components/charts/price-vs-context-chart';
+import { ProviderChart } from '@/components/charts/provider-chart';
+import { EvolutionChart } from '@/components/charts/evolution-chart';
 
 function formatPrice(value: number): string {
   return `$${Number(value).toFixed(2)} / 1M tokens`;
@@ -20,9 +33,14 @@ function formatDate(dateStr: string): string {
 }
 
 export default async function DashboardPage() {
-  const [metrics, syncRun] = await Promise.all([
+  const [metrics, syncRun, priceData, contextData, priceVsContextData, providerData, evolutionData] = await Promise.all([
     getDashboardMetrics(),
     getLatestSuccessfulSyncRun(),
+    getPriceChartData(),
+    getContextChartData(),
+    getPriceVsContextData(),
+    getModelsByProviderData(),
+    getCatalogEvolutionData(),
   ]);
 
   const {
@@ -87,6 +105,16 @@ export default async function DashboardPage() {
           <p className="text-sm text-muted-foreground">—</p>
         )}
       </section>
+
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <PriceChart data={priceData} />
+        <ContextChart data={contextData} />
+        <PriceVsContextChart data={priceVsContextData} />
+        <ProviderChart data={providerData} />
+        <div className="lg:col-span-2">
+          <EvolutionChart data={evolutionData} />
+        </div>
+      </div>
     </main>
   );
 }

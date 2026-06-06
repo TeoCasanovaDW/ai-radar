@@ -1,6 +1,6 @@
 import { createServerClient } from './supabase';
 import type { Model, ModelSnapshot, SyncRun } from './types';
-import { MAIN_PROVIDER_VARIANTS } from '../constants/providers';
+import { MAIN_PROVIDER_VARIANTS, isMainProvider, normalizeProvider } from '../constants/providers';
 
 export type DashboardModelMetric = {
   name: string
@@ -159,4 +159,143 @@ export async function getLatestSuccessfulSyncRun(): Promise<SyncRun | null> {
   }
 
   return data;
+}
+
+export type PriceChartData = { name: string; input: number; output: number };
+
+export async function getPriceChartData(): Promise<PriceChartData[]> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('models')
+    .select('name, provider, prompt_price_per_million, completion_price_per_million')
+    .not('prompt_price_per_million', 'is', null)
+    .not('completion_price_per_million', 'is', null);
+
+  if (error) throw new Error(`Failed to fetch price chart data: ${error.message}`);
+
+  return (data ?? [])
+    .filter((r) => isMainProvider(r.provider))
+    .filter((r) => parseFloat(r.completion_price_per_million) > 0 && parseFloat(r.prompt_price_per_million) > 0)
+    .sort((a, b) => parseFloat(b.completion_price_per_million) - parseFloat(a.completion_price_per_million))
+    .slice(0, 20)
+    .map((r) => ({
+      name: r.name,
+      input: parseFloat(r.prompt_price_per_million),
+      output: parseFloat(r.completion_price_per_million),
+    }));
+}
+
+export type ContextChartData = { name: string; context_length: number };
+
+export async function getContextChartData(): Promise<ContextChartData[]> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('models')
+    .select('name, provider, context_length')
+    .not('context_length', 'is', null);
+
+  if (error) throw new Error(`Failed to fetch context chart data: ${error.message}`);
+
+  return (data ?? [])
+    .filter((r) => isMainProvider(r.provider))
+    .sort((a, b) => b.context_length - a.context_length)
+    .slice(0, 20)
+    .map((r) => ({ name: r.name, context_length: r.context_length }));
+}
+
+export type PriceVsContextData = { name: string; price: number; context: number };
+
+export async function getPriceVsContextData(): Promise<PriceVsContextData[]> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('models')
+    .select('name, provider, completion_price_per_million, context_length')
+    .not('completion_price_per_million', 'is', null)
+    .not('context_length', 'is', null);
+
+  if (error) throw new Error(`Failed to fetch price vs context data: ${error.message}`);
+
+  return (data ?? [])
+    .filter((r) => isMainProvider(r.provider))
+    .filter((r) => parseFloat(r.completion_price_per_million) > 0)
+    .map((r) => ({
+      name: r.name,
+      price: parseFloat(r.completion_price_per_million),
+      context: r.context_length,
+    }));
+}
+
+export type ProviderChartData = { provider: string; model_count: number };
+
+export async function getModelsByProviderData(): Promise<ProviderChartData[]> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('models')
+    .select('provider')
+    .not('provider', 'is', null);
+
+  if (error) throw new Error(`Failed to fetch provider data: ${error.message}`);
+
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    if (!isMainProvider(row.provider)) continue;
+    const norm = normalizeProvider(row.provider);
+    counts.set(norm, (counts.get(norm) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([provider, model_count]) => ({ provider, model_count }))
+    .sort((a, b) => b.model_count - a.model_count);
+}
+
+export type CatalogEvolutionData = {
+  snapshot_date: string;
+  model_count: number;
+  new_models: number;
+  expired_models: number;
+};
+
+export async function getCatalogEvolutionData(): Promise<CatalogEvolutionData[]> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('model_snapshots')
+    .select('snapshot_date, model_id, expiration_date')
+    .order('snapshot_date', { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch catalog evolution data: ${error.message}`);
+
+  const rows = data ?? [];
+
+  const firstSeen = new Map<string, string>();
+  for (const row of rows) {
+    if (!firstSeen.has(row.model_id)) {
+      firstSeen.set(row.model_id, row.snapshot_date);
+    }
+  }
+
+  const byDate = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const bucket = byDate.get(row.snapshot_date) ?? [];
+    bucket.push(row);
+    byDate.set(row.snapshot_date, bucket);
+  }
+
+  return Array.from(byDate.entries()).map(([snapshot_date, dateRows]) => {
+    const distinctModels = new Set(dateRows.map((r) => r.model_id));
+    const newModels = [...distinctModels].filter((id) => firstSeen.get(id) === snapshot_date);
+    const expiredModels = dateRows.filter(
+      (r) => r.expiration_date != null && r.expiration_date <= snapshot_date
+    );
+    return {
+      snapshot_date,
+      model_count: distinctModels.size,
+      new_models: newModels.length,
+      expired_models: expiredModels.length,
+    };
+  });
 }
