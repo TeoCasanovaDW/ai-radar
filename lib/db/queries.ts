@@ -1,5 +1,5 @@
 import { createServerClient } from './supabase';
-import type { Model, SyncRun } from './types';
+import type { Model, ModelSnapshot, SyncRun } from './types';
 import { MAIN_PROVIDER_VARIANTS } from '../constants/providers';
 
 export type DashboardModelMetric = {
@@ -106,6 +106,41 @@ export async function getAllModels(): Promise<Model[]> {
   }
 
   return data ?? [];
+}
+
+export async function getModelById(id: string): Promise<Model | null> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('models')
+    .select('*')
+    .eq('id', id)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch model: ${error.message}`);
+  }
+
+  return data;
+}
+
+export async function getLatestModelSnapshot(modelId: string): Promise<ModelSnapshot | null> {
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('model_snapshots')
+    .select('*')
+    .eq('model_id', modelId)
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch model snapshot: ${error.message}`);
+  }
+
+  return data;
 }
 
 export async function getLatestSuccessfulSyncRun(): Promise<SyncRun | null> {
