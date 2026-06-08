@@ -65,3 +65,13 @@ export interface SyncRun {
   created_at: string;
   updated_at: string;
 }
+
+export interface CatalogDailyStats {
+  stat_date: string;
+  model_count: number;
+  new_models: number;
+  expired_models: number;
+  main_provider_model_count: number;
+  created_at: string;
+  updated_at: string;
+}

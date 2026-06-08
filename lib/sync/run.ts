@@ -1,6 +1,7 @@
 import { createServerClient } from '../db/supabase';
 import { fetchOpenRouterModels } from '../openrouter/fetch';
 import { normalizeModels } from '../openrouter/normalize';
+import { isMainProvider } from '../constants/providers';
 
 export interface SyncResult {
   models_fetched: number;
@@ -86,7 +87,6 @@ export async function runSync(): Promise<SyncResult> {
           supports_structured_outputs: m.supports_structured_outputs,
           is_multimodal: m.is_multimodal,
           expiration_date: m.expiration_date,
-          raw_json: m.raw_json,
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -101,6 +101,45 @@ export async function runSync(): Promise<SyncResult> {
     }
 
     const snapshots_created = (insertedSnapshots ?? []).length;
+
+    // Compute and upsert daily stats
+    const mainProviderModelCount = normalized.filter(m => isMainProvider(m.provider)).length;
+    const expiredCount = normalized.filter(
+      m => m.expiration_date != null && m.expiration_date <= snapshotDate
+    ).length;
+
+    const { error: statsError } = await supabase
+      .from('catalog_daily_stats')
+      .upsert(
+        {
+          stat_date: snapshotDate,
+          model_count: normalized.length,
+          new_models: models_created,
+          expired_models: expiredCount,
+          main_provider_model_count: mainProviderModelCount,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'stat_date' }
+      );
+
+    if (statsError) {
+      throw new Error(`Failed to upsert catalog_daily_stats: ${statsError.message}`);
+    }
+
+    // Retention: delete model_snapshots older than 90 days
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - 90);
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+    const { error: retentionError } = await supabase
+      .from('model_snapshots')
+      .delete()
+      .lt('snapshot_date', cutoffDate);
+
+    if (retentionError) {
+      throw new Error(`Failed to delete old snapshots: ${retentionError.message}`);
+    }
+
     const finishedAt = new Date().toISOString();
 
     await supabase

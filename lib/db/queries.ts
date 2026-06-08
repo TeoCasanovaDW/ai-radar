@@ -264,39 +264,16 @@ export async function getCatalogEvolutionData(): Promise<CatalogEvolutionData[]>
   const supabase = createServerClient();
 
   const { data, error } = await supabase
-    .from('model_snapshots')
-    .select('snapshot_date, model_id, expiration_date')
-    .order('snapshot_date', { ascending: true });
+    .from('catalog_daily_stats')
+    .select('stat_date, model_count, new_models, expired_models')
+    .order('stat_date', { ascending: true });
 
   if (error) throw new Error(`Failed to fetch catalog evolution data: ${error.message}`);
 
-  const rows = data ?? [];
-
-  const firstSeen = new Map<string, string>();
-  for (const row of rows) {
-    if (!firstSeen.has(row.model_id)) {
-      firstSeen.set(row.model_id, row.snapshot_date);
-    }
-  }
-
-  const byDate = new Map<string, typeof rows>();
-  for (const row of rows) {
-    const bucket = byDate.get(row.snapshot_date) ?? [];
-    bucket.push(row);
-    byDate.set(row.snapshot_date, bucket);
-  }
-
-  return Array.from(byDate.entries()).map(([snapshot_date, dateRows]) => {
-    const distinctModels = new Set(dateRows.map((r) => r.model_id));
-    const newModels = [...distinctModels].filter((id) => firstSeen.get(id) === snapshot_date);
-    const expiredModels = dateRows.filter(
-      (r) => r.expiration_date != null && r.expiration_date <= snapshot_date
-    );
-    return {
-      snapshot_date,
-      model_count: distinctModels.size,
-      new_models: newModels.length,
-      expired_models: expiredModels.length,
-    };
-  });
+  return (data ?? []).map(row => ({
+    snapshot_date: row.stat_date,
+    model_count: row.model_count,
+    new_models: row.new_models,
+    expired_models: row.expired_models,
+  }));
 }
