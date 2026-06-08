@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { ChartCard } from './chart-card';
+import { Badge } from '@/components/ui/badge';
 import type { PriceChartData } from '@/lib/db/queries';
 
 type Props = { data: PriceChartData[] };
@@ -17,7 +18,7 @@ type Props = { data: PriceChartData[] };
 export function PriceChart({ data }: Props) {
   const formatted = data.map((d) => ({
     ...d,
-    name: d.name.length > 20 ? d.name.slice(0, 20) + '…' : d.name,
+    name: d.name.length > 25 ? d.name.slice(0, 25) + '…' : d.name,
   }));
 
   return (
@@ -25,11 +26,12 @@ export function PriceChart({ data }: Props) {
       title="Input / Output Price by Model"
       description="Prompt and completion prices per 1M tokens. Free models excluded."
       isEmpty={data.length === 0}
+      badge={<Badge variant="secondary">Top 10</Badge>}
     >
-      <ResponsiveContainer width="100%" minHeight={300}>
+      <ResponsiveContainer width="100%" minHeight={420}>
         <BarChart layout="vertical" data={formatted} margin={{ left: 16, right: 16 }}>
           <XAxis type="number" unit=" $" label={{ value: '$ / 1M tokens', position: 'insideBottom', offset: -4 }} />
-          <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} />
+          <YAxis type="category" dataKey="name" width={190} tick={{ fontSize: 11 }} />
           <Tooltip formatter={(v) => (typeof v === 'number' ? `$${v}` : v)} />
           <Legend />
           <Bar dataKey="input" name="Input" fill="#6366f1" />

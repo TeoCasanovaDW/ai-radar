@@ -69,7 +69,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       .eq('is_multimodal', true),
   ]);
 
-  const uniqueProviders = new Set(mainProviderRows?.map((r) => r.provider) ?? []);
+  const uniqueProviders = new Set(mainProviderRows?.map((r) => normalizeProvider(r.provider)) ?? []);
 
   const cheapestInput = cheapestInputRows?.[0] ?? null;
   const cheapestOutput = cheapestOutputRows?.[0] ?? null;
@@ -178,7 +178,7 @@ export async function getPriceChartData(): Promise<PriceChartData[]> {
     .filter((r) => isMainProvider(r.provider))
     .filter((r) => parseFloat(r.completion_price_per_million) > 0 && parseFloat(r.prompt_price_per_million) > 0)
     .sort((a, b) => parseFloat(b.completion_price_per_million) - parseFloat(a.completion_price_per_million))
-    .slice(0, 20)
+    .slice(0, 10)
     .map((r) => ({
       name: r.name,
       input: parseFloat(r.prompt_price_per_million),
@@ -201,7 +201,7 @@ export async function getContextChartData(): Promise<ContextChartData[]> {
   return (data ?? [])
     .filter((r) => isMainProvider(r.provider))
     .sort((a, b) => b.context_length - a.context_length)
-    .slice(0, 20)
+    .slice(0, 10)
     .map((r) => ({ name: r.name, context_length: r.context_length }));
 }
 
@@ -221,6 +221,7 @@ export async function getPriceVsContextData(): Promise<PriceVsContextData[]> {
   return (data ?? [])
     .filter((r) => isMainProvider(r.provider))
     .filter((r) => parseFloat(r.completion_price_per_million) > 0)
+    .filter((r) => parseFloat(r.completion_price_per_million) <= 200 && r.context_length <= 2_000_000)
     .map((r) => ({
       name: r.name,
       price: parseFloat(r.completion_price_per_million),

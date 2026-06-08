@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { ChartCard } from './chart-card';
+import { Badge } from '@/components/ui/badge';
 import type { PriceVsContextData } from '@/lib/db/queries';
 
 type Props = { data: PriceVsContextData[] };
@@ -31,10 +32,11 @@ export function PriceVsContextChart({ data }: Props) {
   return (
     <ChartCard
       title="Output Price vs Context Length"
-      description="Compares cost efficiency with context size."
+      description="Typical model range. Extreme outliers excluded; overlapping points indicate similar model pricing and context."
       isEmpty={data.length === 0}
+      badge={<Badge variant="secondary">Typical range</Badge>}
     >
-      <ResponsiveContainer width="100%" minHeight={300}>
+      <ResponsiveContainer width="100%" minHeight={450}>
         <ScatterChart margin={{ left: 16, right: 16, bottom: 24 }}>
           <XAxis
             type="number"
@@ -50,7 +52,7 @@ export function PriceVsContextChart({ data }: Props) {
             label={{ value: '$ / 1M tokens', angle: -90, position: 'insideLeft' }}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Scatter data={data} fill="#6366f1" />
+          <Scatter data={data} fill="#6366f1" fillOpacity={0.65} r={4} />
         </ScatterChart>
       </ResponsiveContainer>
     </ChartCard>

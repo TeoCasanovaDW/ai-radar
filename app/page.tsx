@@ -109,11 +109,11 @@ export default async function DashboardPage() {
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <PriceChart data={priceData} />
         <ContextChart data={contextData} />
-        <PriceVsContextChart data={priceVsContextData} />
-        <ProviderChart data={providerData} />
         <div className="lg:col-span-2">
-          <EvolutionChart data={evolutionData} />
+          <PriceVsContextChart data={priceVsContextData} />
         </div>
+        <ProviderChart data={providerData} />
+        <EvolutionChart data={evolutionData} />
       </div>
     </main>
   );
