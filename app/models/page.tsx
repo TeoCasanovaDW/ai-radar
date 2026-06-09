@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { Suspense } from 'react';
 import { getAllModels } from '@/lib/db/queries';
 import { ModelsTable } from '@/components/models/models-table';
 
@@ -30,7 +31,9 @@ export default async function ModelsPage() {
         <code className="rounded bg-muted px-1 py-0.5 text-xs">~openai</code>, are
         OpenRouter-routed variants and are grouped with their main provider for filtering.
       </p>
-      <ModelsTable models={models} />
+      <Suspense fallback={null}>
+        <ModelsTable models={models} />
+      </Suspense>
     </main>
   );
 }

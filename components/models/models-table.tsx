@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   createColumnHelper,
   flexRender,
@@ -35,6 +35,37 @@ import {
 import { isMainProvider } from '@/lib/constants/providers'
 import type { Model } from '@/lib/db/types'
 import { DEFAULT_FILTERS, TableFilters, type FilterState } from './table-filters'
+
+function filtersFromParams(params: URLSearchParams): FilterState {
+  const modality = params.get('modality')
+  const pricing = params.get('pricing')
+  return {
+    search: params.get('q') ?? '',
+    provider: params.get('provider') ?? 'all',
+    modality: (['all', 'text', 'image', 'audio'] as const).includes(modality as never)
+      ? (modality as FilterState['modality'])
+      : 'all',
+    tools: params.get('tools') === 'true',
+    structuredOutputs: params.get('structured') === 'true',
+    freePaid: (['all', 'free', 'paid'] as const).includes(pricing as never)
+      ? (pricing as FilterState['freePaid'])
+      : 'all',
+    mainProvidersOnly: params.get('main') !== 'false',
+  }
+}
+
+function filtersToParams(filters: FilterState): string {
+  const p = new URLSearchParams()
+  if (filters.search) p.set('q', filters.search)
+  if (filters.provider !== 'all') p.set('provider', filters.provider)
+  if (filters.modality !== 'all') p.set('modality', filters.modality)
+  if (filters.tools) p.set('tools', 'true')
+  if (filters.structuredOutputs) p.set('structured', 'true')
+  if (filters.freePaid !== 'all') p.set('pricing', filters.freePaid)
+  if (!filters.mainProvidersOnly) p.set('main', 'false')
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
 
 const columnHelper = createColumnHelper<Model>()
 
@@ -208,7 +239,9 @@ type Props = {
 
 export function ModelsTable({ models }: Props) {
   const router = useRouter()
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [filters, setFilters] = useState<FilterState>(() => filtersFromParams(searchParams))
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -218,7 +251,8 @@ export function ModelsTable({ models }: Props) {
   const handleFiltersChange = useCallback((newFilters: FilterState) => {
     setFilters(newFilters)
     setPagination((p) => ({ ...p, pageIndex: 0 }))
-  }, [])
+    router.replace(pathname + filtersToParams(newFilters), { scroll: false })
+  }, [router, pathname])
 
   const allProviders = useMemo(
     () => Array.from(new Set(models.map((m) => m.provider))).sort(),
@@ -265,7 +299,7 @@ export function ModelsTable({ models }: Props) {
       />
 
       {filteredData.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">No models found.</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">No models match the current filters.</p>
       ) : (
         <>
           <PaginationBar table={table} filteredCount={filteredData.length} />
