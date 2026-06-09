@@ -108,7 +108,7 @@ export async function runSync(): Promise<SyncResult> {
       m => m.expiration_date != null && m.expiration_date <= snapshotDate
     ).length;
 
-    const { error: statsError } = await supabase
+    const { data: statsData, error: statsError } = await supabase
       .from('catalog_daily_stats')
       .upsert(
         {
@@ -120,10 +120,15 @@ export async function runSync(): Promise<SyncResult> {
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'stat_date' }
-      );
+      )
+      .select('stat_date')
+      .single();
 
     if (statsError) {
       throw new Error(`Failed to upsert catalog_daily_stats: ${statsError.message}`);
+    }
+    if (!statsData || statsData.stat_date !== snapshotDate) {
+      throw new Error(`catalog_daily_stats was not written for date ${snapshotDate}`);
     }
 
     // Retention: delete model_snapshots older than 90 days
